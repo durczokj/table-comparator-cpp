@@ -10,7 +10,7 @@
 
 using namespace std;
 
-// Updated ComparisonResult struct with a constructor
+// Represents the result of table comparison
 struct ComparisonResult {
     DataFrame tableA;
     DataFrame tableB;
@@ -21,7 +21,7 @@ struct ComparisonResult {
     DataFrame unmatchedTableB;
     DataFrame consistencyTable;
 
-    // Constructor
+    // Initializes the comparison result
     ComparisonResult(
         const DataFrame& tableA,
         const DataFrame& tableB,
@@ -29,11 +29,11 @@ struct ComparisonResult {
         const string& pkColumnB
     ) : tableA(tableA), tableB(tableB), pkColumnA(pkColumnA), pkColumnB(pkColumnB) {}
 
-    // Method to save results to CSV files
+    // Saves comparison results to CSV files
     void save(const string& resultPath, bool omitInput = false) const {
         std::filesystem::path resultDir(resultPath);
 
-        // Define file paths
+        // Define file paths for output
         std::filesystem::path tableAFile = resultDir / "tableA.csv";
         std::filesystem::path tableBFile = resultDir / "tableB.csv";
         std::filesystem::path matchedFile = resultDir / "matched.csv";
@@ -41,13 +41,13 @@ struct ComparisonResult {
         std::filesystem::path unmatchedTableBFile = resultDir / "unmatchedTableB.csv";
         std::filesystem::path consistencyTableFile = resultDir / "consistencyTable.csv";
 
-        // Conditionally save input tables
+        // Save input tables if not omitted
         if (!omitInput) {
             tableA.toCsv(tableAFile.string());
             tableB.toCsv(tableBFile.string());
         }
 
-        // Save results
+        // Save comparison results
         matched.toCsv(matchedFile.string());
         unmatchedTableA.toCsv(unmatchedTableAFile.string());
         unmatchedTableB.toCsv(unmatchedTableBFile.string());
@@ -57,7 +57,7 @@ struct ComparisonResult {
 
 class TableComparator {
 public:
-    // Method to find the index of a column by its name
+    // Finds the index of a column by its name
     int findColumnIndex(const vector<string>& header, const string& columnName) {
         for (size_t i = 0; i < header.size(); ++i) {
             if (header[i] == columnName) {
@@ -67,7 +67,7 @@ public:
         return -1; // Column not found
     }
 
-    // Method to compare tables by a specified primary key column
+    // Compares two tables based on primary key columns
     tuple<DataFrame, DataFrame, DataFrame> compareAvailability(
         const DataFrame& tableA,
         const DataFrame& tableB,
@@ -77,37 +77,41 @@ public:
         vector<vector<string>> matched;
         vector<vector<string>> unmatchedTableA;
         vector<vector<string>> unmatchedTableB;
-
+    
         const auto& dataA = tableA.getData();
         const auto& dataB = tableB.getData();
-
+    
         if (dataA.empty() || dataB.empty()) {
             cerr << "Error: One or both tables are empty." << endl;
             return {DataFrame(matched), DataFrame(unmatchedTableA), DataFrame(unmatchedTableB)};
         }
-
-        // Find the index of the primary key columns
+    
+        // Get the index of primary key columns
         int pkIndexA = findColumnIndex(dataA[0], pkColumnA);
         int pkIndexB = findColumnIndex(dataB[0], pkColumnB);
-
+    
         if (pkIndexA == -1 || pkIndexB == -1) {
             cerr << "Error: Primary key column not found in one or both tables." << endl;
             return {DataFrame(matched), DataFrame(unmatchedTableA), DataFrame(unmatchedTableB)};
         }
-
+    
         unordered_map<string, vector<string>> tableBMap;
         unordered_set<string> matchedKeys;
-
-        // Map rows of tableB by the primary key
+    
+        // Map rows of tableB by primary key
         for (size_t i = 1; i < dataB.size(); ++i) {
             string key = dataB[i][pkIndexB];
             tableBMap[key] = dataB[i];
         }
-
+    
+        // Add headers to unmatched tables
+        unmatchedTableA.push_back(dataA[0]);
+        unmatchedTableB.push_back(dataB[0]);
+    
         // Compare rows of tableA with tableB
         matched.push_back(dataA[0]); // Add headers from tableA
         matched[0].insert(matched[0].end(), dataB[0].begin(), dataB[0].end()); // Add headers from tableB
-
+    
         for (size_t i = 1; i < dataA.size(); ++i) {
             string key = dataA[i][pkIndexA];
             if (tableBMap.find(key) != tableBMap.end()) {
@@ -119,50 +123,69 @@ public:
                 unmatchedTableA.push_back(dataA[i]);
             }
         }
-
-        // Find unmatched rows in tableB
+    
+        // Identify unmatched rows in tableB
         for (size_t i = 1; i < dataB.size(); ++i) {
             string key = dataB[i][pkIndexB];
             if (matchedKeys.find(key) == matchedKeys.end()) {
                 unmatchedTableB.push_back(dataB[i]);
             }
         }
-
+    
         return {DataFrame(matched), DataFrame(unmatchedTableA), DataFrame(unmatchedTableB)};
     }
 
-    // Method to compare consistency between matched rows
+    // Compares consistency between matched rows
     DataFrame compareConsistency(const DataFrame& matched) {
         vector<vector<string>> consistencyTable;
         const auto& matchedData = matched.getData();
-
-        for (size_t i = 1; i < matchedData.size(); ++i) {
-            vector<string> row = matchedData[i];
-            vector<string> rowTableA;
-            vector<string> rowTableB;
-            vector<string> isEqual;
-            size_t rowLength = row.size(); // Assign the length of the row to a variable
-            for (size_t j = 0; j < rowLength / 2; ++j) { // Conventional for loop
-                rowTableA.push_back(row[j]); // Get the value from the first half of the row
-                rowTableB.push_back(row[j + rowLength / 2]); // Get the corresponding value from the second half of the row
-                isEqual.push_back((rowTableA[j] == rowTableB[j]) ? "TRUE" : "FALSE"); // Compare the two values
-            }
-            consistencyTable.push_back(rowTableA); // Add the first half of the row to the consistency table
-            consistencyTable.push_back(rowTableB); // Add the second half of the row to the consistency table
-            consistencyTable.push_back(isEqual); // Add the comparison result to the consistency table
+    
+        if (matchedData.empty()) {
+            cerr << "Error: Matched table is empty." << endl;
+            return DataFrame(consistencyTable);
         }
-
+    
+        for (size_t i = 0; i < matchedData.size(); ++i) {
+            vector<string> row = matchedData[i];
+            size_t rowLength = row.size();
+    
+            if (i == 0) {
+                // Extract headers from the first row
+                vector<string> header;
+                for (size_t j = 0; j < rowLength / 2; ++j) {
+                    header.push_back(row[j]);
+                }
+                consistencyTable.push_back(header);
+            } else {
+                // Compare values from both tables
+                vector<string> rowTableA;
+                vector<string> rowTableB;
+                vector<string> isEqual;
+    
+                for (size_t j = 0; j < rowLength / 2; ++j) {
+                    rowTableA.push_back(row[j]);
+                    rowTableB.push_back(row[j + rowLength / 2]);
+                    isEqual.push_back((rowTableA[j] == rowTableB[j]) ? "TRUE" : "FALSE");
+                }
+    
+                // Add comparison results to the table
+                consistencyTable.push_back(rowTableA);
+                consistencyTable.push_back(rowTableB);
+                consistencyTable.push_back(isEqual);
+            }
+        }
+    
         return DataFrame(consistencyTable);
     }
 
-    // New method to perform the full comparison
+    // Performs the full comparison process
     ComparisonResult compare(
         const DataFrame& tableA,
         const DataFrame& tableB,
         const string& pkColumnA,
         const string& pkColumnB
     ) {
-        // Initialize the result with the constructor
+        // Initialize the result
         ComparisonResult result(tableA, tableB, pkColumnA, pkColumnB);
 
         // Perform availability comparison
@@ -182,7 +205,7 @@ int main(int argc, char* argv[]) {
 
     string fileA, fileB, pkColumnA, pkColumnB, resultPath;
 
-    // Define long options
+    // Define command-line options
     static struct option longOptions[] = {
         {"table-a-path", required_argument, nullptr, 'a'},
         {"table-b-path", required_argument, nullptr, 'b'},
@@ -224,7 +247,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Read data from CSV files
+    // Load data from CSV files
     tableA.fromCsv(fileA);
     tableB.fromCsv(fileB);
 
@@ -233,10 +256,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Perform the full comparison
+    // Execute the comparison
     ComparisonResult result = comparator.compare(tableA, tableB, pkColumnA, pkColumnB);
 
-    // Save the results using the save method
+    // Save the results
     result.save(resultPath, true);
 
     cout << "Comparison results saved to " << resultPath << endl;
