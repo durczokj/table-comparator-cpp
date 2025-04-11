@@ -28,7 +28,7 @@ public:
     }
 
     // Method to compare tables by a specified primary key column
-    ComparisonResult compare(
+    ComparisonResult compare_availability(
         const vector<vector<string>>& tableA,
         const vector<vector<string>>& tableB,
         const string& pkColumnA,
@@ -111,7 +111,7 @@ int main() {
     cin >> pkColumnB;
 
     // Compare tables by the specified primary key columns
-    ComparisonResult result = comparator.compare(tableA, tableB, pkColumnA, pkColumnB);
+    ComparisonResult result = comparator.compare_availability(tableA, tableB, pkColumnA, pkColumnB);
 
     // Save the results to CSV files
     csvHandler.saveToCSV("matched.csv", result.matched);
