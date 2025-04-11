@@ -4,15 +4,28 @@
 #include <unordered_set>
 #include <vector>
 #include <string>
+#include <tuple> // For std::tuple
 
 using namespace std;
 
-// Updated ComparisonResult struct
+// Updated ComparisonResult struct with a constructor
 struct ComparisonResult {
+    vector<vector<string>> tableA;
+    vector<vector<string>> tableB;
+    string pkColumnA;
+    string pkColumnB;
     vector<vector<string>> matched;
     vector<vector<string>> unmatchedTableA;
     vector<vector<string>> unmatchedTableB;
-    vector<vector<string>> consistencyTable; // Added consistencyTable
+    vector<vector<string>> consistencyTable;
+
+    // Constructor
+    ComparisonResult(
+        const vector<vector<string>>& tableA,
+        const vector<vector<string>>& tableB,
+        const string& pkColumnA,
+        const string& pkColumnB
+    ) : tableA(tableA), tableB(tableB), pkColumnA(pkColumnA), pkColumnB(pkColumnB) {}
 };
 
 class TableComparator {
@@ -28,18 +41,19 @@ public:
     }
 
     // Method to compare tables by a specified primary key column
-    void compare_availability(
+    tuple<vector<vector<string>>, vector<vector<string>>, vector<vector<string>>> compareAvailability(
         const vector<vector<string>>& tableA,
         const vector<vector<string>>& tableB,
         const string& pkColumnA,
-        const string& pkColumnB,
-        vector<vector<string>>& matched,
-        vector<vector<string>>& unmatchedTableA,
-        vector<vector<string>>& unmatchedTableB
+        const string& pkColumnB
     ) {
+        vector<vector<string>> matched;
+        vector<vector<string>> unmatchedTableA;
+        vector<vector<string>> unmatchedTableB;
+
         if (tableA.empty() || tableB.empty()) {
             cerr << "Error: One or both tables are empty." << endl;
-            return;
+            return {matched, unmatchedTableA, unmatchedTableB};
         }
 
         // Find the index of the primary key columns
@@ -48,7 +62,7 @@ public:
 
         if (pkIndexA == -1 || pkIndexB == -1) {
             cerr << "Error: Primary key column not found in one or both tables." << endl;
-            return;
+            return {matched, unmatchedTableA, unmatchedTableB};
         }
 
         unordered_map<string, vector<string>> tableBMap;
@@ -83,10 +97,12 @@ public:
                 unmatchedTableB.push_back(tableB[i]);
             }
         }
+
+        return {matched, unmatchedTableA, unmatchedTableB};
     }
 
     // Method to compare consistency between matched rows
-    vector<vector<string>> compare_consistency(const vector<vector<string>>& matched) {
+    vector<vector<string>> compareConsistency(const vector<vector<string>>& matched) {
         vector<vector<string>> consistencyTable;
 
         for (size_t i = 1; i < matched.size(); ++i) {
@@ -115,13 +131,15 @@ public:
         const string& pkColumnA,
         const string& pkColumnB
     ) {
-        ComparisonResult result;
+        // Initialize the result with the constructor
+        ComparisonResult result(tableA, tableB, pkColumnA, pkColumnB);
 
         // Perform availability comparison
-        compare_availability(tableA, tableB, pkColumnA, pkColumnB, result.matched, result.unmatchedTableA, result.unmatchedTableB);
+        tie(result.matched, result.unmatchedTableA, result.unmatchedTableB) =
+            compareAvailability(tableA, tableB, pkColumnA, pkColumnB);
 
         // Perform consistency comparison
-        result.consistencyTable = compare_consistency(result.matched);
+        result.consistencyTable = compareConsistency(result.matched);
 
         return result;
     }
@@ -155,9 +173,9 @@ int main() {
 
     // Save the results to CSV files
     csvHandler.saveToCSV("matched.csv", result.matched);
-    csvHandler.saveToCSV("unmatched_tableA.csv", result.unmatchedTableA);
-    csvHandler.saveToCSV("unmatched_tableB.csv", result.unmatchedTableB);
-    csvHandler.saveToCSV("consistency_table.csv", result.consistencyTable);
+    csvHandler.saveToCSV("unmatchedTableA.csv", result.unmatchedTableA);
+    csvHandler.saveToCSV("unmatchedTableB.csv", result.unmatchedTableB);
+    csvHandler.saveToCSV("consistencyTable.csv", result.consistencyTable);
 
     return 0;
 }
