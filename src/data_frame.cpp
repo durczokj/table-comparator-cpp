@@ -1,21 +1,17 @@
-#include "csv_handler.h"
+#include "data_frame.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <vector>
-#include <string>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <filesystem>
 
-// Method to read a CSV file
-std::vector<std::vector<std::string>> CsvHandler::readCSV(const std::string& filename) {
-    std::vector<std::vector<std::string>> table;
+// Method to read data from a CSV file
+void DataFrame::fromCsv(const std::string& filename) {
+    data.clear();
     std::ifstream file(filename);
 
     if (!file.is_open()) {
         std::cerr << "Error: Could not open file " << filename << std::endl;
-        return table;
+        return;
     }
 
     std::string line;
@@ -28,20 +24,18 @@ std::vector<std::vector<std::string>> CsvHandler::readCSV(const std::string& fil
             row.push_back(cell);
         }
 
-        table.push_back(row);
+        data.push_back(row);
     }
 
     file.close();
-    return table;
 }
 
-// Method to save a table to a CSV file
-void CsvHandler::saveToCSV(const std::string& filename, const std::vector<std::vector<std::string>>& table) {
-    // Extract the directory path from the filename
+// Method to write data to a CSV file
+void DataFrame::toCsv(const std::string& filename) const {
     std::filesystem::path filePath(filename);
     std::filesystem::path dirPath = filePath.parent_path();
 
-    // Check if the directory exists, and create it if it doesn't
+    // Ensure the directory exists
     if (!std::filesystem::exists(dirPath)) {
         if (!std::filesystem::create_directories(dirPath)) {
             std::cerr << "Error: Could not create directory " << dirPath << std::endl;
@@ -56,7 +50,7 @@ void CsvHandler::saveToCSV(const std::string& filename, const std::vector<std::v
         return;
     }
 
-    for (const auto& row : table) {
+    for (const auto& row : data) {
         for (size_t i = 0; i < row.size(); ++i) {
             file << row[i];
             if (i < row.size() - 1) {
