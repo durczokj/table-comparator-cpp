@@ -14,8 +14,7 @@ using namespace std;
 struct ComparisonResult {
     DataFrame tableA;
     DataFrame tableB;
-    string pkColumnA;
-    string pkColumnB;
+    string pkColumn;
     DataFrame matched;
     DataFrame unmatchedTableA;
     DataFrame unmatchedTableB;
@@ -25,9 +24,8 @@ struct ComparisonResult {
     ComparisonResult(
         const DataFrame& tableA,
         const DataFrame& tableB,
-        const string& pkColumnA,
-        const string& pkColumnB
-    ) : tableA(tableA), tableB(tableB), pkColumnA(pkColumnA), pkColumnB(pkColumnB) {}
+        const string& pkColumn
+    ) : tableA(tableA), tableB(tableB), pkColumn(pkColumn) {}
 
     // Saves comparison results to CSV files
     void save(const string& resultPath, bool omitInput = false) const {
@@ -67,12 +65,11 @@ public:
         return -1; // Column not found
     }
 
-    // Compares two tables based on primary key columns
+    // Compares two tables based on a single primary key column
     tuple<DataFrame, DataFrame, DataFrame> compareAvailability(
         const DataFrame& tableA,
         const DataFrame& tableB,
-        const string& pkColumnA,
-        const string& pkColumnB
+        const string& pkColumn
     ) {
         vector<vector<string>> matched;
         vector<vector<string>> unmatchedTableA;
@@ -86,9 +83,9 @@ public:
             return {DataFrame(matched), DataFrame(unmatchedTableA), DataFrame(unmatchedTableB)};
         }
     
-        // Get the index of primary key columns
-        int pkIndexA = findColumnIndex(dataA[0], pkColumnA);
-        int pkIndexB = findColumnIndex(dataB[0], pkColumnB);
+        // Get the index of the primary key column in both tables
+        int pkIndexA = findColumnIndex(dataA[0], pkColumn);
+        int pkIndexB = findColumnIndex(dataB[0], pkColumn);
     
         if (pkIndexA == -1 || pkIndexB == -1) {
             cerr << "Error: Primary key column not found in one or both tables." << endl;
@@ -182,15 +179,14 @@ public:
     ComparisonResult compare(
         const DataFrame& tableA,
         const DataFrame& tableB,
-        const string& pkColumnA,
-        const string& pkColumnB
+        const string& pkColumn
     ) {
         // Initialize the result
-        ComparisonResult result(tableA, tableB, pkColumnA, pkColumnB);
+        ComparisonResult result(tableA, tableB, pkColumn);
 
         // Perform availability comparison
         tie(result.matched, result.unmatchedTableA, result.unmatchedTableB) =
-            compareAvailability(tableA, tableB, pkColumnA, pkColumnB);
+            compareAvailability(tableA, tableB, pkColumn);
 
         // Perform consistency comparison
         result.consistencyTable = compareConsistency(result.matched);
@@ -203,20 +199,19 @@ int main(int argc, char* argv[]) {
     DataFrame tableA, tableB;
     TableComparator comparator;
 
-    string fileA, fileB, pkColumnA, pkColumnB, resultPath;
+    string fileA, fileB, pkColumn, resultPath;
 
     // Define command-line options
     static struct option longOptions[] = {
         {"table-a-path", required_argument, nullptr, 'a'},
         {"table-b-path", required_argument, nullptr, 'b'},
-        {"table-a-pk", required_argument, nullptr, 'p'},
-        {"table-b-pk", required_argument, nullptr, 'q'},
+        {"pk-column", required_argument, nullptr, 'p'},
         {"result-path", required_argument, nullptr, 'r'},
         {nullptr, 0, nullptr, 0}
     };
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "a:b:p:q:r:", longOptions, nullptr)) != -1) {
+    while ((opt = getopt_long(argc, argv, "a:b:p:r:", longOptions, nullptr)) != -1) {
         switch (opt) {
             case 'a':
                 fileA = optarg;
@@ -225,25 +220,22 @@ int main(int argc, char* argv[]) {
                 fileB = optarg;
                 break;
             case 'p':
-                pkColumnA = optarg;
-                break;
-            case 'q':
-                pkColumnB = optarg;
+                pkColumn = optarg;
                 break;
             case 'r':
                 resultPath = optarg;
                 break;
             default:
                 cerr << "Usage: ./table_comparator --table-a-path <path> --table-b-path <path> "
-                     << "--table-a-pk <column> --table-b-pk <column> --result-path <path>" << endl;
+                     << "--pk-column <column> --result-path <path>" << endl;
                 return 1;
         }
     }
 
-    if (fileA.empty() || fileB.empty() || pkColumnA.empty() || pkColumnB.empty() || resultPath.empty()) {
+    if (fileA.empty() || fileB.empty() || pkColumn.empty() || resultPath.empty()) {
         cerr << "Error: Missing required arguments." << endl;
         cerr << "Usage: ./table_comparator --table-a-path <path> --table-b-path <path> "
-             << "--table-a-pk <column> --table-b-pk <column> --result-path <path>" << endl;
+             << "--pk-column <column> --result-path <path>" << endl;
         return 1;
     }
 
@@ -257,7 +249,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Execute the comparison
-    ComparisonResult result = comparator.compare(tableA, tableB, pkColumnA, pkColumnB);
+    ComparisonResult result = comparator.compare(tableA, tableB, pkColumn);
 
     // Save the results
     result.save(resultPath, true);
