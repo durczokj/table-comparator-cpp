@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <tuple> // For std::tuple
+#include <getopt.h>
 
 using namespace std;
 
@@ -145,12 +146,53 @@ public:
     }
 };
 
-int main() {
+int main(int argc, char* argv[]) {
     CsvHandler csvHandler;
     TableComparator comparator;
 
-    string fileA = "data/tableA.csv"; // Replace with your CSV file name
-    string fileB = "data/tableB.csv"; // Replace with your CSV file name
+    string fileA, fileB, pkColumnA, pkColumnB, resultPath;
+
+    // Define long options
+    static struct option longOptions[] = {
+        {"table-a-path", required_argument, nullptr, 'a'},
+        {"table-b-path", required_argument, nullptr, 'b'},
+        {"table-a-pk", required_argument, nullptr, 'p'},
+        {"table-b-pk", required_argument, nullptr, 'q'},
+        {"result-path", required_argument, nullptr, 'r'},
+        {nullptr, 0, nullptr, 0}
+    };
+
+    int opt;
+    while ((opt = getopt_long(argc, argv, "a:b:p:q:r:", longOptions, nullptr)) != -1) {
+        switch (opt) {
+            case 'a':
+                fileA = optarg;
+                break;
+            case 'b':
+                fileB = optarg;
+                break;
+            case 'p':
+                pkColumnA = optarg;
+                break;
+            case 'q':
+                pkColumnB = optarg;
+                break;
+            case 'r':
+                resultPath = optarg;
+                break;
+            default:
+                cerr << "Usage: ./table_comparator --table-a-path <path> --table-b-path <path> "
+                     << "--table-a-pk <column> --table-b-pk <column> --result-path <path>" << endl;
+                return 1;
+        }
+    }
+
+    if (fileA.empty() || fileB.empty() || pkColumnA.empty() || pkColumnB.empty() || resultPath.empty()) {
+        cerr << "Error: Missing required arguments." << endl;
+        cerr << "Usage: ./table_comparator --table-a-path <path> --table-b-path <path> "
+             << "--table-a-pk <column> --table-b-pk <column> --result-path <path>" << endl;
+        return 1;
+    }
 
     // Read data from CSV files
     vector<vector<string>> tableA = csvHandler.readCSV(fileA);
@@ -161,13 +203,6 @@ int main() {
         return 1;
     }
 
-    // Ask the user for the primary key column names
-    string pkColumnA, pkColumnB;
-    cout << "Enter the primary key column name for Table A: ";
-    cin >> pkColumnA;
-    cout << "Enter the primary key column name for Table B: ";
-    cin >> pkColumnB;
-
     // Perform the full comparison
     ComparisonResult result = comparator.compare(tableA, tableB, pkColumnA, pkColumnB);
 
@@ -176,6 +211,8 @@ int main() {
     csvHandler.saveToCSV("unmatchedTableA.csv", result.unmatchedTableA);
     csvHandler.saveToCSV("unmatchedTableB.csv", result.unmatchedTableB);
     csvHandler.saveToCSV("consistencyTable.csv", result.consistencyTable);
+
+    cout << "Comparison results saved to " << resultPath << endl;
 
     return 0;
 }
