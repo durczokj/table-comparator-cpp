@@ -6,6 +6,7 @@
 #include <string>
 #include <tuple> // For std::tuple
 #include <getopt.h>
+#include <filesystem>
 
 using namespace std;
 
@@ -27,6 +28,31 @@ struct ComparisonResult {
         const string& pkColumnA,
         const string& pkColumnB
     ) : tableA(tableA), tableB(tableB), pkColumnA(pkColumnA), pkColumnB(pkColumnB) {}
+
+    // Method to save results to CSV files
+    void save(const string& resultPath, CsvHandler& csvHandler, bool omitInput = false) const {
+        std::filesystem::path resultDir(resultPath);
+
+        // Define file paths
+        std::filesystem::path tableAFile = resultDir / "tableA.csv";
+        std::filesystem::path tableBFile = resultDir / "tableB.csv";
+        std::filesystem::path matchedFile = resultDir / "matched.csv";
+        std::filesystem::path unmatchedTableAFile = resultDir / "unmatchedTableA.csv";
+        std::filesystem::path unmatchedTableBFile = resultDir / "unmatchedTableB.csv";
+        std::filesystem::path consistencyTableFile = resultDir / "consistencyTable.csv";
+
+        // Conditionally save input tables
+        if (!omitInput) {
+            csvHandler.saveToCSV(tableAFile.string(), tableA);
+            csvHandler.saveToCSV(tableBFile.string(), tableB);
+        }
+
+        // Save results
+        csvHandler.saveToCSV(matchedFile.string(), matched);
+        csvHandler.saveToCSV(unmatchedTableAFile.string(), unmatchedTableA);
+        csvHandler.saveToCSV(unmatchedTableBFile.string(), unmatchedTableB);
+        csvHandler.saveToCSV(consistencyTableFile.string(), consistencyTable);
+    }
 };
 
 class TableComparator {
@@ -206,11 +232,8 @@ int main(int argc, char* argv[]) {
     // Perform the full comparison
     ComparisonResult result = comparator.compare(tableA, tableB, pkColumnA, pkColumnB);
 
-    // Save the results to CSV files
-    csvHandler.saveToCSV("matched.csv", result.matched);
-    csvHandler.saveToCSV("unmatchedTableA.csv", result.unmatchedTableA);
-    csvHandler.saveToCSV("unmatchedTableB.csv", result.unmatchedTableB);
-    csvHandler.saveToCSV("consistencyTable.csv", result.consistencyTable);
+    // Save the results using the save method
+    result.save(resultPath, csvHandler, true);
 
     cout << "Comparison results saved to " << resultPath << endl;
 

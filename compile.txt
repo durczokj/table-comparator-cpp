@@ -1,1 +1,1 @@
-g++ -std=c++11 -o table_comparator src/table_comparator.cpp src/csv_handler.cpp
+g++ -std=c++17 -o table_comparator src/table_comparator.cpp src/csv_handler.cpp
