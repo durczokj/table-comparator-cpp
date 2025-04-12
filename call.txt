@@ -1,1 +1,0 @@
-./table_comparator --table-a-path data/tableA.csv --table-b-path data/tableB.csv --pk-column PESEL --result-path data/comparison_result
