@@ -4,7 +4,7 @@
 #include <unordered_set>
 #include <vector>
 #include <string>
-#include <tuple> // For std::tuple
+#include <tuple>
 #include <getopt.h>
 #include <filesystem>
 
@@ -55,6 +55,27 @@ struct ComparisonResult {
 
 class TableComparator {
 public:
+    // Checks if the tables are valid for comparison
+    void validateTables(const DataFrame& tableA, const DataFrame& tableB) {
+        const auto& dataA = tableA.getData();
+        const auto& dataB = tableB.getData();
+
+        // Check if any table is empty
+        if (dataA.empty() || dataB.empty()) {
+            throw runtime_error("Error: One or both tables are empty.");
+        }
+
+        // Check if the tables have the same number of columns
+        if (dataA[0].size() != dataB[0].size()) {
+            throw runtime_error("Error: Tables have different numbers of columns.");
+        }
+
+        // Check if the header rows are identical
+        if (dataA[0] != dataB[0]) {
+            throw runtime_error("Error: Header rows of the tables are not identical.");
+        }
+    }
+
     // Finds the index of a column by its name
     int findColumnIndex(const vector<string>& header, const string& columnName) {
         for (size_t i = 0; i < header.size(); ++i) {
@@ -79,8 +100,7 @@ public:
         const auto& dataB = tableB.getData();
     
         if (dataA.empty() || dataB.empty()) {
-            cerr << "Error: One or both tables are empty." << endl;
-            return {DataFrame(matched), DataFrame(unmatchedTableA), DataFrame(unmatchedTableB)};
+            throw runtime_error("Error: One or both tables are empty.");
         }
     
         // Get the index of the primary key column in both tables
@@ -138,41 +158,43 @@ public:
         const auto& matchedData = matched.getData();
     
         if (matchedData.empty()) {
-            cerr << "Error: Matched table is empty." << endl;
-            return DataFrame(consistencyTable);
+            throw runtime_error("Matched table is empty.");
         }
     
-        for (size_t i = 0; i < matchedData.size(); ++i) {
-            vector<string> row = matchedData[i];
-            size_t rowLength = row.size();
+        // Extract headers
+        vector<string> header = extractHeaders(matchedData[0]);
+        consistencyTable.push_back(header);
     
-            if (i == 0) {
-                // Extract headers from the first row
-                vector<string> header;
-                for (size_t j = 0; j < rowLength / 2; ++j) {
-                    header.push_back(row[j]);
-                }
-                consistencyTable.push_back(header);
-            } else {
-                // Compare values from both tables
-                vector<string> rowTableA;
-                vector<string> rowTableB;
-                vector<string> isEqual;
-    
-                for (size_t j = 0; j < rowLength / 2; ++j) {
-                    rowTableA.push_back(row[j]);
-                    rowTableB.push_back(row[j + rowLength / 2]);
-                    isEqual.push_back((rowTableA[j] == rowTableB[j]) ? "TRUE" : "FALSE");
-                }
-    
-                // Add comparison results to the table
-                consistencyTable.push_back(rowTableA);
-                consistencyTable.push_back(rowTableB);
-                consistencyTable.push_back(isEqual);
-            }
+        // Compare rows
+        for (size_t i = 1; i < matchedData.size(); ++i) {
+            auto [tableAValues, tableBValues, comparisonResults] = compareRow(matchedData[i]);
+            consistencyTable.push_back(tableAValues);
+            consistencyTable.push_back(tableBValues);
+            consistencyTable.push_back(comparisonResults);
         }
     
         return DataFrame(consistencyTable);
+    }
+    
+    tuple<vector<string>, vector<string>, vector<string>> compareRow(const vector<string>& row) {
+        size_t rowLength = row.size();
+        vector<string> tableAValues, tableBValues, comparisonResults;
+    
+        for (size_t j = 0; j < rowLength / 2; ++j) {
+            tableAValues.push_back(row[j]);
+            tableBValues.push_back(row[j + rowLength / 2]);
+            comparisonResults.push_back((tableAValues[j] == tableBValues[j]) ? "TRUE" : "FALSE");
+        }
+    
+        return {tableAValues, tableBValues, comparisonResults};
+    }
+    
+    vector<string> extractHeaders(const vector<string>& row) {
+        vector<string> header;
+        for (size_t j = 0; j < row.size() / 2; ++j) {
+            header.push_back(row[j]);
+        }
+        return header;
     }
 
     // Performs the full comparison process
@@ -181,6 +203,9 @@ public:
         const DataFrame& tableB,
         const string& pkColumn
     ) {
+        // Validate the tables before comparison
+        validateTables(tableA, tableB);
+
         // Initialize the result
         ComparisonResult result(tableA, tableB, pkColumn);
 
