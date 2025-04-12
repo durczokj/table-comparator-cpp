@@ -9,8 +9,9 @@ The Table Comparator is a C++ command-line tool designed to compare two CSV tabl
 
 ```mermaid
 graph TD
-    A[Table A (CSV)] -->|--table-a-path| C[Table Comparator]
-    B[Table B (CSV)] -->|--table-b-path| C[Table Comparator]
+    A[Table A] -->|--table-a-path| C[Table Comparator]
+    B[Table B] -->|--table-b-path| C[Table Comparator]
+    P[Primary Key] -->|--pk-column| C[Table Comparator]
     C -->|Matched Rows| D[matched.csv]
     C -->|Unmatched Rows in Table A| E[unmatchedTableA.csv]
     C -->|Unmatched Rows in Table B| F[unmatchedTableB.csv]
