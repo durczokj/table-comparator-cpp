@@ -76,8 +76,9 @@ classDiagram
         + ComparisonResult compare(DataFrame, DataFrame, string)
     }
 
-    DataFrame <|-- ComparisonResult
-    TableComparator --> ComparisonResult
+    %% Relationships
+    DataFrame <|-- ComparisonResult : "Composition (contains DataFrames)"
+    TableComparator --> ComparisonResult : "Dependency (uses ComparisonResult)"
 ```
 
 ---
