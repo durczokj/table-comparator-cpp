@@ -16,6 +16,11 @@ void DataFrame::fromCsv(const std::string& filename) {
 
     std::string line;
     while (std::getline(file, line)) {
+        // Trim trailing '\r' if present (for Windows-style line endings)
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+
         std::vector<std::string> row;
         std::stringstream ss(line);
         std::string cell;

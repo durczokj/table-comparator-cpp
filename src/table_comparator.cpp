@@ -14,7 +14,7 @@ using namespace std;
 struct ComparisonResult {
     DataFrame tableA;
     DataFrame tableB;
-    string pkColumn;
+    vector<string> pkColumns;
     DataFrame matched;
     DataFrame unmatchedTableA;
     DataFrame unmatchedTableB;
@@ -24,8 +24,8 @@ struct ComparisonResult {
     ComparisonResult(
         const DataFrame& tableA,
         const DataFrame& tableB,
-        const string& pkColumn
-    ) : tableA(tableA), tableB(tableB), pkColumn(pkColumn) {}
+        const vector<string>& pkColumns
+    ) : tableA(tableA), tableB(tableB), pkColumns(pkColumns) {}
 
     // Saves comparison results to CSV files
     void save(const string& resultPath, bool omitInput = false) const {
@@ -86,51 +86,64 @@ public:
         return -1; // Column not found
     }
 
-    // Compares two tables based on a single primary key column
+    // Compares two tables based on multiple primary key columns
     tuple<DataFrame, DataFrame, DataFrame> compareAvailability(
         const DataFrame& tableA,
         const DataFrame& tableB,
-        const string& pkColumn
+        const vector<string>& pkColumns
     ) {
         vector<vector<string>> matched;
         vector<vector<string>> unmatchedTableA;
         vector<vector<string>> unmatchedTableB;
-    
+
         const auto& dataA = tableA.getData();
         const auto& dataB = tableB.getData();
-    
+
         if (dataA.empty() || dataB.empty()) {
             throw runtime_error("Error: One or both tables are empty.");
         }
-    
-        // Get the index of the primary key column in both tables
-        int pkIndexA = findColumnIndex(dataA[0], pkColumn);
-        int pkIndexB = findColumnIndex(dataB[0], pkColumn);
-    
-        if (pkIndexA == -1 || pkIndexB == -1) {
-            cerr << "Error: Primary key column not found in one or both tables." << endl;
-            return {DataFrame(matched), DataFrame(unmatchedTableA), DataFrame(unmatchedTableB)};
+
+        // Get the indices of the primary key columns in both tables
+        vector<int> pkIndicesA, pkIndicesB;
+        for (const auto& pkColumn : pkColumns) {
+            int indexA = findColumnIndex(dataA[0], pkColumn);
+            int indexB = findColumnIndex(dataB[0], pkColumn);
+            if (indexA == -1 || indexB == -1) {
+                cerr << "Error: Primary key column '" << pkColumn << "' not found in one or both tables." << endl;
+                return {DataFrame(matched), DataFrame(unmatchedTableA), DataFrame(unmatchedTableB)};
+            }
+            pkIndicesA.push_back(indexA);
+            pkIndicesB.push_back(indexB);
         }
-    
+
         unordered_map<string, vector<string>> tableBMap;
         unordered_set<string> matchedKeys;
-    
-        // Map rows of tableB by primary key
+
+        // Helper function to generate a composite key
+        auto generateCompositeKey = [](const vector<string>& row, const vector<int>& indices) -> string {
+            string key;
+            for (int index : indices) {
+                key += row[index] + "|"; // Use a delimiter to separate column values
+            }
+            return key;
+        };
+
+        // Map rows of tableB by composite primary key
         for (size_t i = 1; i < dataB.size(); ++i) {
-            string key = dataB[i][pkIndexB];
+            string key = generateCompositeKey(dataB[i], pkIndicesB);
             tableBMap[key] = dataB[i];
         }
-    
+
         // Add headers to unmatched tables
         unmatchedTableA.push_back(dataA[0]);
         unmatchedTableB.push_back(dataB[0]);
-    
+
         // Compare rows of tableA with tableB
         matched.push_back(dataA[0]); // Add headers from tableA
         matched[0].insert(matched[0].end(), dataB[0].begin(), dataB[0].end()); // Add headers from tableB
-    
+
         for (size_t i = 1; i < dataA.size(); ++i) {
-            string key = dataA[i][pkIndexA];
+            string key = generateCompositeKey(dataA[i], pkIndicesA);
             if (tableBMap.find(key) != tableBMap.end()) {
                 vector<string> joinedRow = dataA[i];
                 joinedRow.insert(joinedRow.end(), tableBMap[key].begin(), tableBMap[key].end());
@@ -140,15 +153,15 @@ public:
                 unmatchedTableA.push_back(dataA[i]);
             }
         }
-    
+
         // Identify unmatched rows in tableB
         for (size_t i = 1; i < dataB.size(); ++i) {
-            string key = dataB[i][pkIndexB];
+            string key = generateCompositeKey(dataB[i], pkIndicesB);
             if (matchedKeys.find(key) == matchedKeys.end()) {
                 unmatchedTableB.push_back(dataB[i]);
             }
         }
-    
+
         return {DataFrame(matched), DataFrame(unmatchedTableA), DataFrame(unmatchedTableB)};
     }
 
@@ -156,15 +169,15 @@ public:
     DataFrame compareConsistency(const DataFrame& matched) {
         vector<vector<string>> consistencyTable;
         const auto& matchedData = matched.getData();
-    
+
         if (matchedData.empty()) {
             throw runtime_error("Matched table is empty.");
         }
-    
+
         // Extract headers
         vector<string> header = extractHeaders(matchedData[0]);
         consistencyTable.push_back(header);
-    
+
         // Compare rows
         for (size_t i = 1; i < matchedData.size(); ++i) {
             auto [tableAValues, tableBValues, comparisonResults] = compareRow(matchedData[i]);
@@ -172,23 +185,23 @@ public:
             consistencyTable.push_back(tableBValues);
             consistencyTable.push_back(comparisonResults);
         }
-    
+
         return DataFrame(consistencyTable);
     }
-    
+
     tuple<vector<string>, vector<string>, vector<string>> compareRow(const vector<string>& row) {
         size_t rowLength = row.size();
         vector<string> tableAValues, tableBValues, comparisonResults;
-    
+
         for (size_t j = 0; j < rowLength / 2; ++j) {
             tableAValues.push_back(row[j]);
             tableBValues.push_back(row[j + rowLength / 2]);
             comparisonResults.push_back((tableAValues[j] == tableBValues[j]) ? "TRUE" : "FALSE");
         }
-    
+
         return {tableAValues, tableBValues, comparisonResults};
     }
-    
+
     vector<string> extractHeaders(const vector<string>& row) {
         vector<string> header;
         for (size_t j = 0; j < row.size() / 2; ++j) {
@@ -201,17 +214,17 @@ public:
     ComparisonResult compare(
         const DataFrame& tableA,
         const DataFrame& tableB,
-        const string& pkColumn
+        const vector<string>& pkColumns
     ) {
         // Validate the tables before comparison
         validateTables(tableA, tableB);
 
         // Initialize the result
-        ComparisonResult result(tableA, tableB, pkColumn);
+        ComparisonResult result(tableA, tableB, pkColumns);
 
         // Perform availability comparison
         tie(result.matched, result.unmatchedTableA, result.unmatchedTableB) =
-            compareAvailability(tableA, tableB, pkColumn);
+            compareAvailability(tableA, tableB, pkColumns);
 
         // Perform consistency comparison
         result.consistencyTable = compareConsistency(result.matched);
@@ -224,7 +237,8 @@ int main(int argc, char* argv[]) {
     DataFrame tableA, tableB;
     TableComparator comparator;
 
-    string fileA, fileB, pkColumn, resultPath;
+    string fileA, fileB, resultPath;
+    vector<string> pkColumns;
 
     // Define command-line options
     static struct option longOptions[] = {
@@ -245,22 +259,22 @@ int main(int argc, char* argv[]) {
                 fileB = optarg;
                 break;
             case 'p':
-                pkColumn = optarg;
+                pkColumns.push_back(optarg); // Collect multiple primary key columns
                 break;
             case 'r':
                 resultPath = optarg;
                 break;
             default:
                 cerr << "Usage: ./table_comparator --table-a-path <path> --table-b-path <path> "
-                     << "--pk-column <column> --result-path <path>" << endl;
+                     << "--pk-column <column> [--pk-column <column> ...] --result-path <path>" << endl;
                 return 1;
         }
     }
 
-    if (fileA.empty() || fileB.empty() || pkColumn.empty() || resultPath.empty()) {
+    if (fileA.empty() || fileB.empty() || pkColumns.empty() || resultPath.empty()) {
         cerr << "Error: Missing required arguments." << endl;
         cerr << "Usage: ./table_comparator --table-a-path <path> --table-b-path <path> "
-             << "--pk-column <column> --result-path <path>" << endl;
+             << "--pk-column <column> [--pk-column <column> ...] --result-path <path>" << endl;
         return 1;
     }
 
@@ -274,7 +288,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Execute the comparison
-    ComparisonResult result = comparator.compare(tableA, tableB, pkColumn);
+    ComparisonResult result = comparator.compare(tableA, tableB, pkColumns);
 
     // Save the results
     result.save(resultPath, true);
