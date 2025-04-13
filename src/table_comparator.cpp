@@ -239,6 +239,8 @@ int main(int argc, char* argv[]) {
 
     string fileA, fileB, resultPath;
     vector<string> pkColumns;
+    char separatorA = ','; // Default separator for tableA
+    char separatorB = ','; // Default separator for tableB
 
     // Define command-line options
     static struct option longOptions[] = {
@@ -246,11 +248,13 @@ int main(int argc, char* argv[]) {
         {"table-b-path", required_argument, nullptr, 'b'},
         {"pk-column", required_argument, nullptr, 'p'},
         {"result-path", required_argument, nullptr, 'r'},
+        {"table-a-separator", required_argument, nullptr, 's'},
+        {"table-b-separator", required_argument, nullptr, 't'},
         {nullptr, 0, nullptr, 0}
     };
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "a:b:p:r:", longOptions, nullptr)) != -1) {
+    while ((opt = getopt_long(argc, argv, "a:b:p:r:s:t:", longOptions, nullptr)) != -1) {
         switch (opt) {
             case 'a':
                 fileA = optarg;
@@ -264,9 +268,16 @@ int main(int argc, char* argv[]) {
             case 'r':
                 resultPath = optarg;
                 break;
+            case 's':
+                separatorA = optarg[0]; // Set custom separator for tableA
+                break;
+            case 't':
+                separatorB = optarg[0]; // Set custom separator for tableB
+                break;
             default:
                 cerr << "Usage: ./table_comparator --table-a-path <path> --table-b-path <path> "
-                     << "--pk-column <column> [--pk-column <column> ...] --result-path <path>" << endl;
+                     << "--pk-column <column> [--pk-column <column> ...] --result-path <path> "
+                     << "[--table-a-separator <char>] [--table-b-separator <char>]" << endl;
                 return 1;
         }
     }
@@ -274,13 +285,14 @@ int main(int argc, char* argv[]) {
     if (fileA.empty() || fileB.empty() || pkColumns.empty() || resultPath.empty()) {
         cerr << "Error: Missing required arguments." << endl;
         cerr << "Usage: ./table_comparator --table-a-path <path> --table-b-path <path> "
-             << "--pk-column <column> [--pk-column <column> ...] --result-path <path>" << endl;
+             << "--pk-column <column> [--pk-column <column> ...] --result-path <path> "
+             << "[--table-a-separator <char>] [--table-b-separator <char>]" << endl;
         return 1;
     }
 
-    // Load data from CSV files
-    tableA.fromCsv(fileA);
-    tableB.fromCsv(fileB);
+    // Load data from CSV files with custom separators
+    tableA.fromCsv(fileA, separatorA);
+    tableB.fromCsv(fileB, separatorB);
 
     if (tableA.getData().empty() || tableB.getData().empty()) {
         cerr << "Error: One or both tables are empty." << endl;

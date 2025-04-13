@@ -1,14 +1,14 @@
 # 🔍 Table Comparator
 
 ## 📄 Description
-The Table Comparator is a C++ command-line tool designed to compare two CSV tables based on a specified primary key column.  
+The Table Comparator is a C++ command-line tool designed to compare two CSV tables based on one or more specified primary key columns.  
 It identifies matched rows, unmatched rows, and evaluates the consistency of matched rows across the two tables. The results are saved as CSV files in a specified output directory.
 
 ```mermaid
 graph TD
     A[tableA]
     B[tableB]
-    P[pkColumn]
+    P[pkColumns]
     C[TableComparator]
     D[matched]
     E[unmatchedTableA]
@@ -24,8 +24,8 @@ graph TD
     C --> G
 ```
 - `tableA` and `tableB`: Input DFs to be compared.  
-- `pkColumn`: The primary key column used for comparison.  
-- `matched`: Contains rows from both tables that match based on the primary key.  
+- `pkColumns`: One or more primary key columns used for comparison.  
+- `matched`: Contains rows from both tables that match based on the primary key(s).  
 - `unmatchedTableA`: Rows from Table A without a match in Table B.  
 - `unmatchedTableB`: Rows from Table B without a match in Table A.  
 - `consistencyTable`: Detailed comparison of matched rows, checking each column.
@@ -34,23 +34,25 @@ graph TD
 
 ### 🖥️ Command
 ```bash
-./table_comparator --table-a-path <path_to_tableA> --table-b-path <path_to_tableB> --pk-column <primary_key_column> --result-path <output_directory>
+./table_comparator --table-a-path <path_to_tableA> --table-b-path <path_to_tableB> --pk-column <primary_key_column> [--pk-column <additional_key_column> ...] --result-path <output_directory> [--table-a-separator <separator>] [--table-b-separator <separator>]
 ```
 
 ### 📥 Arguments
 - `--table-a-path`: Path to the first input CSV file (Table A).  
 - `--table-b-path`: Path to the second input CSV file (Table B).  
-- `--pk-column`: Name of the primary key column used for comparison.  
-- `--result-path`: Path to the directory where the output files will be saved.
+- `--pk-column`: Name of one or more primary key columns used for comparison. Multiple columns can be specified by repeating this argument.  
+- `--result-path`: Path to the directory where the output files will be saved.  
+- `--table-a-separator`: (Optional) Custom separator for Table A (default is `,`).  
+- `--table-b-separator`: (Optional) Custom separator for Table B (default is `,`).
 
 ## 🔧 Example
 
 ### 📂 Input
 
-To compare `tableA.csv` and `tableB.csv` using the `PESEL` column as the primary key and save the results in `comparison_result`, run:
+To compare `tableA.csv` and `tableB.csv` using the `PESEL` and `Nazwisko` columns as composite primary keys, with custom separators (`;` for Table A and `|` for Table B), and save the results in `comparison_result`, run:
 
 ```bash
-./table_comparator --table-a-path ./data/tableA.csv --table-b-path ./data/tableB.csv --pk-column PESEL --result-path ./data/comparison_result
+./table_comparator --table-a-path ./data/tableA.csv --table-b-path --table-a-separator ',' --table-b-separator ',' ./data/tableB.csv --pk-column PESEL --pk-column Nazwisko --result-path ./data/comparison_result
 ```
 
 #### 🧾 tableA.csv
@@ -177,15 +179,15 @@ classDiagram
   - Have identical headers  
 - Done via `TableComparator::validateTables`.
 
-### 🔑 Primary Key Indexing
-- Locates primary key index using `TableComparator::findColumnIndex`.
+### 🔑 Composite Primary Key Indexing
+- Locates indices of all specified primary key columns using `TableComparator::findColumnIndex`.
 
 ### 🔍 Availability Comparison
 - Handled by `compareAvailability`:
   - Matches → `matched`  
   - A-only → `unmatchedTableA`  
   - B-only → `unmatchedTableB`  
-- Efficient via `unordered_map` and `unordered_set`.
+- Composite keys are generated using all specified primary key columns.
 
 ### 🧪 Consistency Check
 - `compareConsistency` uses `compareRow` to assess each field.  
@@ -202,6 +204,6 @@ classDiagram
 
 ### 🚀 Execution Flow
 In `main()`:
-1. Load CSVs  
-2. Compare tables  
-3. Save results
+1. Load CSVs with custom separators.  
+2. Compare tables using composite primary keys.  
+3. Save results.

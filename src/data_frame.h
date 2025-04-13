@@ -18,8 +18,8 @@ public:
     void setData(const std::vector<std::vector<std::string>>& newData) { data = newData; }
 
     // Methods to read from and write to CSV
-    void fromCsv(const std::string& filename);
-    void toCsv(const std::string& filename) const;
+    void fromCsv(const std::string& filename, char separator = ',');
+    void toCsv(const std::string& filename, char separator = ',') const;
 };
 
 #endif // DATA_FRAME_H

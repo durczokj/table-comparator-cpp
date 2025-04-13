@@ -4,8 +4,8 @@
 #include <sstream>
 #include <filesystem>
 
-// Method to read data from a CSV file
-void DataFrame::fromCsv(const std::string& filename) {
+// Method to read data from a CSV file with a customizable separator
+void DataFrame::fromCsv(const std::string& filename, char separator) {
     data.clear();
     std::ifstream file(filename);
 
@@ -25,7 +25,7 @@ void DataFrame::fromCsv(const std::string& filename) {
         std::stringstream ss(line);
         std::string cell;
 
-        while (std::getline(ss, cell, ',')) {
+        while (std::getline(ss, cell, separator)) {
             row.push_back(cell);
         }
 
@@ -35,8 +35,8 @@ void DataFrame::fromCsv(const std::string& filename) {
     file.close();
 }
 
-// Method to write data to a CSV file
-void DataFrame::toCsv(const std::string& filename) const {
+// Method to write data to a CSV file with a customizable separator
+void DataFrame::toCsv(const std::string& filename, char separator) const {
     std::filesystem::path filePath(filename);
     std::filesystem::path dirPath = filePath.parent_path();
 
@@ -59,7 +59,7 @@ void DataFrame::toCsv(const std::string& filename) const {
         for (size_t i = 0; i < row.size(); ++i) {
             file << row[i];
             if (i < row.size() - 1) {
-                file << ",";
+                file << separator;
             }
         }
         file << "\n";
