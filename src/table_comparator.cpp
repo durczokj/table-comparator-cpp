@@ -99,10 +99,6 @@ public:
         const auto& dataA = tableA.getData();
         const auto& dataB = tableB.getData();
 
-        if (dataA.empty() || dataB.empty()) {
-            throw runtime_error("Error: One or both tables are empty.");
-        }
-
         // Get the indices of the primary key columns in both tables
         vector<int> pkIndicesA, pkIndicesB;
         for (const auto& pkColumn : pkColumns) {
