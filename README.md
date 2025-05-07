@@ -52,7 +52,7 @@ graph TD
 To compare `tableA.csv` and `tableB.csv` using the `PESEL` and `Nazwisko` columns as composite primary keys, with custom separators (`;` for Table A and `|` for Table B), and save the results in `comparison_result`, run:
 
 ```bash
-./table_comparator --table-a-path ./data/tableA.csv --table-b-path --table-a-separator ',' --table-b-separator ',' ./data/tableB.csv --pk-column PESEL --pk-column Nazwisko --result-path ./data/comparison_result
+./table_comparator --table-a-path ./data/tableA.csv --table-b-path ./data/tableB.csv --table-a-separator ',' --table-b-separator ',' --pk-column PESEL --pk-column Nazwisko --result-path ./data/comparison_result
 ```
 
 #### 🧾 tableA.csv
